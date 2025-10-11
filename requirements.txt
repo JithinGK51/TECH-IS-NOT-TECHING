@@ -1,0 +1,19 @@
+# DAKSHA CARNIVAL - Typing Challenge Game
+# Python Dependencies
+
+# Core Python modules (usually included with Python)
+# tkinter - GUI framework (included with Python)
+# json - Data storage (included with Python)
+# time - Timer functionality (included with Python)
+# random - Random number generation (included with Python)
+# os - Operating system interface (included with Python)
+
+# No external dependencies required
+# This game uses only Python standard library modules
+
+# Python Version Requirement
+# Python >= 3.7
+
+# Platform Requirements
+# Windows (recommended for optimal experience)
+# Linux/macOS (should work with tkinter support)
