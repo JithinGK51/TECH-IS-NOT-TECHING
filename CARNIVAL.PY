@@ -4,6 +4,7 @@ import random
 import json
 import os
 import time
+import pyttsx3
 
 # ----------------------------------------
 # CONFIGURATION
@@ -31,6 +32,10 @@ current_user = {"team_name": ""}
 game_start_time = 0
 game_timer_id = None
 game_timer_running = False
+
+# Voice announcement variables
+last_minute_announced = 0
+voice_engine = None
 
 # Screen management
 current_screen = "home"  # home, game
@@ -79,13 +84,47 @@ def add_to_leaderboard(team_name, time_taken):
     return leaderboard
 
 # ----------------------------------------
+# VOICE FUNCTIONS
+# ----------------------------------------
+def initialize_voice():
+    """Initialize the text-to-speech engine"""
+    global voice_engine
+    try:
+        voice_engine = pyttsx3.init()
+        # Set voice properties for a professional female voice
+        voices = voice_engine.getProperty('voices')
+        for voice in voices:
+            if 'female' in voice.name.lower() or 'zira' in voice.name.lower():
+                voice_engine.setProperty('voice', voice.id)
+                break
+        voice_engine.setProperty('rate', 150)  # Speed of speech
+        voice_engine.setProperty('volume', 0.8)  # Volume level
+    except:
+        voice_engine = None
+
+def announce_minute(minute):
+    """Announce the minute milestone"""
+    global voice_engine
+    if voice_engine:
+        try:
+            if minute == 1:
+                message = "1 minute over"
+            else:
+                message = f"{minute} minutes have over"
+            voice_engine.say(message)
+            voice_engine.runAndWait()
+        except:
+            pass
+
+# ----------------------------------------
 # TIMER FUNCTIONS
 # ----------------------------------------
 def start_game_timer():
     """Start the game timer"""
-    global game_start_time, game_timer_id, game_timer_running
+    global game_start_time, game_timer_id, game_timer_running, last_minute_announced
     game_start_time = time.time()
     game_timer_running = True
+    last_minute_announced = 0
     update_game_timer()
 
 def stop_game_timer():
@@ -100,14 +139,19 @@ def stop_game_timer():
 
 def update_game_timer():
     """Update the game timer display"""
-    global game_timer_id
+    global game_timer_id, last_minute_announced
     if game_timer_running:
         elapsed = time.time() - game_start_time
         minutes = int(elapsed // 60)
         seconds = int(elapsed % 60)
         milliseconds = int((elapsed % 1) * 100)
         
-        timer_text = f"⏱️ {minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+        # Check if we need to announce a new minute
+        if minutes > last_minute_announced and minutes > 0:
+            last_minute_announced = minutes
+            announce_minute(minutes)
+        
+        timer_text = f"🕐 {minutes:02d}:{seconds:02d}.{milliseconds:02d}"
         timer_label.config(text=timer_text)
         
         game_timer_id = root.after(50, update_game_timer)  # Update every 50ms for smooth display
@@ -564,17 +608,45 @@ start_btn.pack(pady=40)
 # ----------------------------------------
 game_frame = tk.Frame(root, bg="#0d1117")
 
-# Timer in top-left corner
+# Timer in top-left corner with enhanced clock design
+timer_frame = tk.Frame(game_frame, bg="#0d1117", relief="raised", bd=4)
+timer_frame.place(x=20, y=20)
+
+# Clock face background
+clock_bg = tk.Frame(timer_frame, bg="#1a1a2e", relief="sunken", bd=3)
+clock_bg.pack(padx=5, pady=5)
+
 timer_label = tk.Label(
-    game_frame,
-    text="⏱️ 00:00.00",
-    font=("Orbitron", 20, "bold"),
+    clock_bg,
+    text="🕐 00:00.00",
+    font=("Orbitron", 32, "bold"),
     fg="#00FFD6",
-    bg="#0d1117",
-    relief="raised",
-    bd=2
+    bg="#1a1a2e",
+    relief="flat",
+    bd=0,
+    padx=20,
+    pady=15
 )
-timer_label.place(x=20, y=20)
+timer_label.pack()
+
+# Clock hands decoration (visual elements)
+clock_decorations = tk.Frame(clock_bg, bg="#1a1a2e")
+clock_decorations.pack()
+
+# Add clock-like visual elements
+for i in range(12):
+    hour_mark = tk.Label(
+        clock_decorations,
+        text="•",
+        font=("Arial", 8),
+        fg="#00FFD6",
+        bg="#1a1a2e"
+    )
+    # Position hour marks in a circle pattern (simplified)
+    if i < 6:
+        hour_mark.pack(side="top", pady=1)
+    else:
+        hour_mark.pack(side="bottom", pady=1)
 
 # Title frame
 frame = tk.Frame(game_frame, bg="#00FFD6", bd=3, relief="groove")
@@ -712,6 +784,9 @@ root.bind_all("<Key>", block_keys)
 # ----------------------------------------
 # RUN ANIMATION + MAINLOOP
 # ----------------------------------------
+# Initialize voice engine
+initialize_voice()
+
 # Start with home screen
 show_home_screen()
 animate_glow()

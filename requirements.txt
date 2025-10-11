@@ -8,12 +8,12 @@
 # random - Random number generation (included with Python)
 # os - Operating system interface (included with Python)
 
-# No external dependencies required
-# This game uses only Python standard library modules
+# External Dependencies
+pyttsx3>=2.90
 
 # Python Version Requirement
 # Python >= 3.7
 
 # Platform Requirements
-# Windows (recommended for optimal experience)
-# Linux/macOS (should work with tkinter support)
+# Windows (recommended for optimal experience with voice)
+# Linux/macOS (should work with tkinter support, voice may need additional setup)
