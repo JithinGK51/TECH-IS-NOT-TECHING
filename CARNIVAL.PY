@@ -4,6 +4,7 @@ import random
 import json
 import os
 import time
+import math
 
 # ----------------------------------------
 # CONFIGURATION
@@ -34,6 +35,16 @@ game_timer_running = False
 
 # Screen management
 current_screen = "home"  # home, game
+
+# Analog clock variables
+analog_clock_canvas = None
+clock_center_x = 0
+clock_center_y = 0
+clock_radius = 0
+hour_hand = None
+minute_hand = None
+second_hand = None
+clock_animation_id = None
 
 # ----------------------------------------
 # LEADERBOARD FUNCTIONS
@@ -95,6 +106,8 @@ def stop_game_timer():
         game_timer_running = False
         if game_timer_id:
             root.after_cancel(game_timer_id)
+        # Stop analog clock animation
+        stop_analog_clock()
         return time.time() - game_start_time
     return 0
 
@@ -115,6 +128,186 @@ def update_game_timer():
         digital_timer_label.config(text=digital_timer_text)
         
         game_timer_id = root.after(50, update_game_timer)  # Update every 50ms for smooth display
+        # Update analog clock
+        update_analog_clock()
+
+# ----------------------------------------
+# ANALOG CLOCK FUNCTIONS
+# ----------------------------------------
+def create_analog_clock():
+    """Create the analog clock canvas and design"""
+    global analog_clock_canvas, clock_center_x, clock_center_y, clock_radius
+    
+    # Create canvas for analog clock
+    analog_clock_canvas = tk.Canvas(
+        game_frame,
+        width=200,
+        height=200,
+        bg="#1a1a2e",
+        highlightthickness=0,
+        relief="sunken",
+        bd=3
+    )
+    analog_clock_canvas.place(x=20, y=20)  # Left side position
+    
+    # Clock dimensions
+    clock_center_x = 100
+    clock_center_y = 100
+    clock_radius = 85
+    
+    # Draw clock face
+    draw_clock_face()
+    
+    # Initialize clock hands
+    initialize_clock_hands()
+
+def draw_clock_face():
+    """Draw the clock face with numbers and hour marks"""
+    global analog_clock_canvas, clock_center_x, clock_center_y, clock_radius
+    
+    # Outer circle
+    analog_clock_canvas.create_oval(
+        clock_center_x - clock_radius,
+        clock_center_y - clock_radius,
+        clock_center_x + clock_radius,
+        clock_center_y + clock_radius,
+        outline="#00FFD6",
+        width=3,
+        fill="#0d1117"
+    )
+    
+    # Inner circle
+    analog_clock_canvas.create_oval(
+        clock_center_x - clock_radius + 10,
+        clock_center_y - clock_radius + 10,
+        clock_center_x + clock_radius - 10,
+        clock_center_y + clock_radius - 10,
+        outline="#00FFD6",
+        width=1,
+        fill="#1a1a2e"
+    )
+    
+    # Hour marks (12 positions)
+    for i in range(12):
+        angle = math.radians(i * 30 - 90)  # Start from top (12 o'clock)
+        
+        # Calculate positions for hour marks
+        inner_radius = clock_radius - 15
+        outer_radius = clock_radius - 5
+        
+        x1 = clock_center_x + inner_radius * math.cos(angle)
+        y1 = clock_center_y + inner_radius * math.sin(angle)
+        x2 = clock_center_x + outer_radius * math.cos(angle)
+        y2 = clock_center_y + outer_radius * math.sin(angle)
+        
+        # Draw hour marks
+        analog_clock_canvas.create_line(
+            x1, y1, x2, y2,
+            fill="#00FFD6",
+            width=3
+        )
+        
+        # Add hour numbers (12, 1, 2, 3, 6, 9)
+        if i in [0, 3, 6, 9]:  # 12, 3, 6, 9 o'clock
+            number_radius = clock_radius - 25
+            num_x = clock_center_x + number_radius * math.cos(angle)
+            num_y = clock_center_y + number_radius * math.sin(angle)
+            
+            hour_text = str(12 if i == 0 else i)
+            analog_clock_canvas.create_text(
+                num_x, num_y,
+                text=hour_text,
+                fill="#00FFD6",
+                font=("Orbitron", 12, "bold")
+            )
+    
+    # Center dot
+    analog_clock_canvas.create_oval(
+        clock_center_x - 5,
+        clock_center_y - 5,
+        clock_center_x + 5,
+        clock_center_y + 5,
+        fill="#00FFD6",
+        outline="#00FFD6"
+    )
+
+def initialize_clock_hands():
+    """Initialize the clock hands"""
+    global hour_hand, minute_hand, second_hand
+    
+    # Create initial clock hands (pointing to 12:00:00)
+    hour_hand = analog_clock_canvas.create_line(
+        clock_center_x, clock_center_y,
+        clock_center_x, clock_center_y - 40,
+        fill="#FF6B6B",
+        width=4,
+        capstyle="round"
+    )
+    
+    minute_hand = analog_clock_canvas.create_line(
+        clock_center_x, clock_center_y,
+        clock_center_x, clock_center_y - 60,
+        fill="#4ECDC4",
+        width=3,
+        capstyle="round"
+    )
+    
+    second_hand = analog_clock_canvas.create_line(
+        clock_center_x, clock_center_y,
+        clock_center_x, clock_center_y - 70,
+        fill="#FFE66D",
+        width=2,
+        capstyle="round"
+    )
+
+def update_analog_clock():
+    """Update the analog clock hands based on elapsed time"""
+    global clock_animation_id
+    
+    if not game_timer_running or not analog_clock_canvas:
+        return
+    
+    # Calculate elapsed time
+    elapsed = time.time() - game_start_time
+    
+    # Convert to hours, minutes, seconds
+    total_seconds = int(elapsed)
+    hours = (total_seconds // 3600) % 12  # 12-hour format
+    minutes = (total_seconds // 60) % 60
+    seconds = total_seconds % 60
+    
+    # Calculate angles (in radians, starting from top)
+    hour_angle = math.radians((hours * 30 + minutes * 0.5) - 90)
+    minute_angle = math.radians((minutes * 6) - 90)
+    second_angle = math.radians((seconds * 6) - 90)
+    
+    # Update hour hand
+    hour_length = 40
+    hour_x = clock_center_x + hour_length * math.cos(hour_angle)
+    hour_y = clock_center_y + hour_length * math.sin(hour_angle)
+    analog_clock_canvas.coords(hour_hand, clock_center_x, clock_center_y, hour_x, hour_y)
+    
+    # Update minute hand
+    minute_length = 60
+    minute_x = clock_center_x + minute_length * math.cos(minute_angle)
+    minute_y = clock_center_y + minute_length * math.sin(minute_angle)
+    analog_clock_canvas.coords(minute_hand, clock_center_x, clock_center_y, minute_x, minute_y)
+    
+    # Update second hand
+    second_length = 70
+    second_x = clock_center_x + second_length * math.cos(second_angle)
+    second_y = clock_center_y + second_length * math.sin(second_angle)
+    analog_clock_canvas.coords(second_hand, clock_center_x, clock_center_y, second_x, second_y)
+    
+    # Schedule next update
+    clock_animation_id = root.after(100, update_analog_clock)
+
+def stop_analog_clock():
+    """Stop the analog clock animation"""
+    global clock_animation_id
+    if clock_animation_id:
+        root.after_cancel(clock_animation_id)
+        clock_animation_id = None
 
 # ----------------------------------------
 # GAME FUNCTIONS
@@ -400,6 +593,9 @@ def show_game_screen():
     # Reset word progress
     current_word_index = 0
     update_word_progress()
+    
+    # Create analog clock on the left side
+    create_analog_clock()
     
     # Position digital timer on the right side dynamically
     screen_width = root.winfo_screenwidth()
