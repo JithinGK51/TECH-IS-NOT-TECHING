@@ -331,8 +331,8 @@ def change_letter():
     current_letter = ALPHABETS[current_index]
     current_index = (current_index + 1) % len(ALPHABETS)
     
-    # Show current letter and "5" countdown
-    change_button.config(text=f"CHANGE LETTER\n{current_letter}\n5")
+    # Show "5" countdown only (no letter display)
+    change_button.config(text="CHANGE LETTER\n5")
     root.update()  # Force immediate UI update
     
     # Start 5-second countdown
@@ -347,9 +347,8 @@ def start_countdown():
     def countdown():
         nonlocal countdown_seconds
         if countdown_seconds > 0 and countdown_active:
-            # Show current letter and countdown
-            current_letter = ALPHABETS[(current_index - 1) % len(ALPHABETS)]
-            change_button.config(text=f"CHANGE LETTER\n{current_letter}\n{countdown_seconds}")
+            # Show countdown only (no letter display)
+            change_button.config(text=f"CHANGE LETTER\n{countdown_seconds}")
             root.update()  # Force immediate UI update
             countdown_seconds -= 1
             countdown_timer = root.after(1000, countdown)
