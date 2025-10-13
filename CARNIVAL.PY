@@ -317,7 +317,7 @@ def on_change_letter_click(event):
     change_letter()
 
 def change_letter():
-    """Change letter - cycles through A-Z, a-z, space"""
+    """Change letter - cycles through a-z, space, A-Z"""
     global current_index, countdown_timer, countdown_active
     if celebrating:
         return
@@ -327,10 +327,12 @@ def change_letter():
         root.after_cancel(countdown_timer)
         countdown_active = False
     
+    # Show current letter first, then increment for next click
+    current_letter = ALPHABETS[current_index]
     current_index = (current_index + 1) % len(ALPHABETS)
     
-    # Show "5" immediately when button is clicked
-    change_button.config(text="CHANGE LETTER\n5")
+    # Show current letter and "5" countdown
+    change_button.config(text=f"CHANGE LETTER\n{current_letter}\n5")
     root.update()  # Force immediate UI update
     
     # Start 5-second countdown
@@ -345,7 +347,9 @@ def start_countdown():
     def countdown():
         nonlocal countdown_seconds
         if countdown_seconds > 0 and countdown_active:
-            change_button.config(text=f"CHANGE LETTER\n{countdown_seconds}")
+            # Show current letter and countdown
+            current_letter = ALPHABETS[(current_index - 1) % len(ALPHABETS)]
+            change_button.config(text=f"CHANGE LETTER\n{current_letter}\n{countdown_seconds}")
             root.update()  # Force immediate UI update
             countdown_seconds -= 1
             countdown_timer = root.after(1000, countdown)
@@ -371,7 +375,8 @@ def type_letter():
         countdown_active = False
         countdown_timer = None
     
-    letter = ALPHABETS[current_index]
+    # Use the letter that was displayed (current_index was already incremented)
+    letter = ALPHABETS[(current_index - 1) % len(ALPHABETS)]
     typed_text += letter
     text_display.config(text=typed_text)
     check_word()
