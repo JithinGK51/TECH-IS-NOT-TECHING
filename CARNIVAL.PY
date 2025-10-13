@@ -110,6 +110,10 @@ def update_game_timer():
         timer_text = f"⏱️ {minutes:02d}:{seconds:02d}.{milliseconds:02d}"
         timer_label.config(text=timer_text)
         
+        # Update digital timer on the right side
+        digital_timer_text = f"{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+        digital_timer_label.config(text=digital_timer_text)
+        
         game_timer_id = root.after(50, update_game_timer)  # Update every 50ms for smooth display
 
 # ----------------------------------------
@@ -396,6 +400,12 @@ def show_game_screen():
     # Reset word progress
     current_word_index = 0
     update_word_progress()
+    
+    # Position digital timer on the right side dynamically
+    screen_width = root.winfo_screenwidth()
+    digital_timer_x = screen_width - 200  # 200px from right edge
+    digital_timer_label.place(x=digital_timer_x, y=20)
+    
     start_game_timer()
 
 def update_word_progress():
@@ -575,6 +585,21 @@ timer_label = tk.Label(
     bd=2
 )
 timer_label.place(x=20, y=20)
+
+# Digital timer on the right side
+digital_timer_label = tk.Label(
+    game_frame,
+    text="00:00.00",
+    font=("Orbitron", 24, "bold"),
+    fg="#00FFD6",
+    bg="#1a1a2e",
+    relief="sunken",
+    bd=3,
+    padx=20,
+    pady=10
+)
+# Position on the right side (will be positioned dynamically)
+# digital_timer_label.place(x=800, y=20)  # Will be positioned in show_game_screen()
 
 # Title frame
 frame = tk.Frame(game_frame, bg="#00FFD6", bd=3, relief="groove")
