@@ -711,17 +711,17 @@ home_title.pack(pady=30)
 guide_label = tk.Label(
     home_frame,
     text=(
-        "🎮 GLOBAL MOUSE CONTROLS\n"
-        "Click anywhere on screen!\n\n"
-        "🖱️ LEFT CLICK ANYWHERE → Change Letter (cycle through a-z, space, A-Z)\n"
-        "⏰ 5-second countdown → Auto-resets to 'a' after timeout\n"
-        "🖱️ RIGHT CLICK ANYWHERE → Type Letter (add selected letter to text)\n"
-        "⌫ BACKSPACE → Press Backspace key on keyboard to remove last character\n\n"
-        "🎯 GOAL: Type 1 words in sequence: Daksha Carnival\n"
-        "💡 Timer resets when you type the letter!\n\n"
-        "🖱️ Left Click Anywhere = Change Letter | Right Click Anywhere = Type Letter\n"
-        "⌨️ Backspace Key = Remove last character\n"
-        "🚪 Press ESC key to exit the game!"
+        "🎮 INTERACTIVE TYPING CHALLENGE\n"
+        "Professional Mouse-Controlled Interface\n\n"
+        "🖱️ LEFT CLICK ANYWHERE → Navigate Letters (a-z → space → A-Z)\n"
+        "⏰ AUTO-TIMEOUT → 5-second countdown resets to 'a'\n"
+        "🖱️ RIGHT CLICK ANYWHERE → Input Selected Letter\n"
+        "⌫ BACKSPACE KEY → Remove Last Character\n\n"
+        "🎯 OBJECTIVE: Complete the phrase 'Daksha Carnival'\n"
+        "⏱️ TIMER: Starts automatically upon first input\n\n"
+        "🖱️ Left Click = Letter Selection | Right Click = Letter Input\n"
+        "⌨️ Backspace = Character Deletion\n"
+        "🚪 ESC Key = Exit Application"
     ),
     font=("Consolas", 12),
     fg="#FFFFFF",
@@ -737,7 +737,7 @@ input_frame.pack(pady=30)
 # Team name input
 team_name_label = tk.Label(
     input_frame,
-    text="👥 Enter Your Team Name:",
+    text="👥 TEAM REGISTRATION:",
     font=("Consolas", 16, "bold"),
     fg="#FFFFFF",
     bg="#0d1117"
@@ -827,16 +827,16 @@ word_progress_label.pack(pady=10)
 info = tk.Label(
     game_frame,
     text=(
-        "🎮 GLOBAL MOUSE CONTROLS - Click anywhere on screen!\n"
-        "🔄 LEFT CLICK ANYWHERE → Change Letter (cycle through a-z, space, A-Z)\n"
-        "⏰ 5-second countdown → Auto-resets to 'a' after timeout\n"
-        "✍️ RIGHT CLICK ANYWHERE → Type Letter (add selected letter to text)\n"
-        "⌫ BACKSPACE → Press Backspace key on keyboard to remove last character\n\n"
-        f"🎯 Goal: Type {len(TARGET_WORDS)} words in sequence: {' → '.join(TARGET_WORDS)}\n"
-        "💡 Timer resets when you type the letter!\n"
-        "🖱️ Left Click Anywhere = Change Letter | Right Click Anywhere = Type Letter\n"
-        "⌨️ Backspace Key = Remove last character\n"
-        "🚪 Press ESC key to exit the game!"
+        "🎮 INTERACTIVE TYPING CHALLENGE - Professional Interface\n"
+        "🔄 LEFT CLICK ANYWHERE → Navigate Letters (a-z → space → A-Z)\n"
+        "⏰ AUTO-TIMEOUT → 5-second countdown resets to 'a'\n"
+        "✍️ RIGHT CLICK ANYWHERE → Input Selected Letter\n"
+        "⌫ BACKSPACE KEY → Remove Last Character\n\n"
+        f"🎯 OBJECTIVE: Complete the phrase: {' → '.join(TARGET_WORDS)}\n"
+        "⏱️ TIMER: Active and tracking your progress\n"
+        "🖱️ Left Click = Letter Selection | Right Click = Letter Input\n"
+        "⌨️ Backspace = Character Deletion\n"
+        "🚪 ESC Key = Exit Application"
     ),
     font=("Consolas", 12),
     fg="#FFFFFF",
@@ -920,7 +920,7 @@ backspace_button.pack(pady=15)
 
 footer = tk.Label(
     game_frame,
-    text="💡 LEFT CLICK ANYWHERE = Change Letter | RIGHT CLICK ANYWHERE = Type Letter 💡",
+    text="💡 PROFESSIONAL CONTROLS: Left Click = Letter Selection | Right Click = Letter Input 💡",
     font=("Consolas", 13, "italic"),
     fg="#999999",
     bg="#0d1117"
