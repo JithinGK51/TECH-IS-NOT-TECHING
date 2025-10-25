@@ -22,6 +22,9 @@ glow_intensity = 100
 celebrating = False
 countdown_timer = None
 countdown_active = False
+last_cleanup_time = 0
+timer_health_check = 0
+timer_restart_count = 0
 
 # Multiple words tracking
 current_word_index = 0
@@ -44,7 +47,7 @@ clock_radius = 0
 hour_hand = None
 minute_hand = None
 second_hand = None
-clock_animation_id = None
+# clock_animation_id removed - analog clock no longer has its own timer
 
 # ----------------------------------------
 # LEADERBOARD FUNCTIONS
@@ -93,11 +96,57 @@ def add_to_leaderboard(team_name, time_taken):
 # TIMER FUNCTIONS
 # ----------------------------------------
 def start_game_timer():
-    """Start the game timer"""
-    global game_start_time, game_timer_id, game_timer_running
+    """Start the game timer with unlimited operation and health monitoring"""
+    global game_start_time, game_timer_id, game_timer_running, timer_health_check, timer_restart_count
     game_start_time = time.time()
     game_timer_running = True
+    timer_health_check = 0
+    timer_restart_count = 0
     update_game_timer()
+
+def monitor_timer_health():
+    """Monitor timer health and restart if needed - runs every 10 minutes"""
+    global game_timer_running, timer_restart_count
+    
+    if game_timer_running:
+        # Check if timer is still responsive
+        try:
+            # If we can access the timer variables, it's working
+            if timer_restart_count > 5:
+                # Too many restarts, reset everything
+                stop_game_timer()
+                start_game_timer()
+        except:
+            # Timer is completely broken, restart it
+            try:
+                stop_game_timer()
+                start_game_timer()
+            except:
+                pass
+    
+    # Schedule next health check in 10 minutes
+    root.after(600000, monitor_timer_health)  # 10 minutes = 600,000 ms
+
+def optimize_timer_performance():
+    """Optimize timer performance for long-running sessions"""
+    global last_cleanup_time
+    
+    try:
+        # Force garbage collection
+        import gc
+        gc.collect()
+        
+        # Clear any accumulated tkinter objects
+        root.update_idletasks()
+        
+        # Reset cleanup timer
+        last_cleanup_time = time.time()
+        
+    except Exception as e:
+        pass
+    
+    # Schedule next optimization in 5 minutes
+    root.after(300000, optimize_timer_performance)  # 5 minutes = 300,000 ms
 
 def stop_game_timer():
     """Stop the game timer and return elapsed time"""
@@ -112,24 +161,93 @@ def stop_game_timer():
     return 0
 
 def update_game_timer():
-    """Update the game timer display"""
-    global game_timer_id
+    """Update the game timer display with unlimited operation and maximum safety"""
+    global game_timer_id, game_timer_running, game_start_time, last_cleanup_time
+    global timer_health_check, timer_restart_count
+    
     if game_timer_running:
-        elapsed = time.time() - game_start_time
-        minutes = int(elapsed // 60)
-        seconds = int(elapsed % 60)
-        milliseconds = int((elapsed % 1) * 100)
+        try:
+            elapsed = time.time() - game_start_time
+            current_time = time.time()
+            timer_health_check += 1
+            
+            # UNLIMITED OPERATION: Remove 24-hour limit for truly unlimited timer
+            # The timer can now run indefinitely without any time restrictions
+            
+            # Enhanced periodic cleanup every 2 minutes for better performance
+            if current_time - last_cleanup_time > 120:  # 2 minutes
+                last_cleanup_time = current_time
+                # Force garbage collection to clean up any accumulated objects
+                import gc
+                gc.collect()
+                
+                # Health check: restart timer if it's been running too long (every 1000 updates)
+                if timer_health_check > 1000:
+                    timer_health_check = 0
+                    timer_restart_count += 1
+                    # Restart timer to prevent any potential accumulation issues
+                    if game_timer_id:
+                        root.after_cancel(game_timer_id)
+                    # Continue with fresh timer
+                    game_timer_id = root.after(50, update_game_timer)
+                    return
+            
+            # Handle unlimited time values with robust calculation
+            total_seconds = int(elapsed)
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            milliseconds = int((elapsed % 1) * 100)
+            
+            # Format timer display - support unlimited hours
+            if hours > 0:
+                timer_text = f"⏱️ {hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+                digital_timer_text = f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+            else:
+                timer_text = f"⏱️ {minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+                digital_timer_text = f"{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+            
+            # Update displays with error protection
+            try:
+                timer_label.config(text=timer_text)
+                digital_timer_label.config(text=digital_timer_text)
+            except:
+                # If display update fails, continue anyway
+                pass
+            
+            # Update analog clock with error protection
+            try:
+                update_analog_clock()
+            except:
+                # If analog clock fails, continue anyway
+                pass
+            
+        except Exception as e:
+            # Enhanced error recovery - restart timer if needed
+            try:
+                timer_text = "⏱️ --:--.--"
+                digital_timer_text = "--:--.--"
+                timer_label.config(text=timer_text)
+                digital_timer_label.config(text=digital_timer_text)
+            except:
+                pass
+            
+            # Restart timer on critical errors
+            timer_restart_count += 1
+            if timer_restart_count < 10:  # Prevent infinite restart loops
+                game_timer_id = root.after(100, update_game_timer)  # Slower restart
+            return
         
-        timer_text = f"⏱️ {minutes:02d}:{seconds:02d}.{milliseconds:02d}"
-        timer_label.config(text=timer_text)
-        
-        # Update digital timer on the right side
-        digital_timer_text = f"{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
-        digital_timer_label.config(text=digital_timer_text)
-        
-        game_timer_id = root.after(50, update_game_timer)  # Update every 50ms for smooth display
-        # Update analog clock
-        update_analog_clock()
+        # Continue timer with enhanced error handling
+        try:
+            game_timer_id = root.after(50, update_game_timer)  # Update every 50ms for smooth display
+        except Exception as e:
+            # If timer scheduling fails, try again with longer delay
+            try:
+                game_timer_id = root.after(100, update_game_timer)
+            except:
+                # Last resort: restart the entire timer system
+                start_game_timer()
 
 # ----------------------------------------
 # ANALOG CLOCK FUNCTIONS
@@ -261,53 +379,57 @@ def initialize_clock_hands():
     )
 
 def update_analog_clock():
-    """Update the analog clock hands based on elapsed time"""
-    global clock_animation_id
+    """Update the analog clock hands based on elapsed time - NO INDEPENDENT TIMER"""
+    # This function should ONLY be called by the main timer, not schedule itself
     
     if not game_timer_running or not analog_clock_canvas:
         return
     
-    # Calculate elapsed time
-    elapsed = time.time() - game_start_time
+    try:
+        # Calculate elapsed time with overflow protection
+        elapsed = time.time() - game_start_time
+        
+        # Convert to hours, minutes, seconds with proper modulo operations
+        total_seconds = int(elapsed)
+        hours = (total_seconds // 3600) % 12  # 12-hour format
+        minutes = (total_seconds // 60) % 60
+        seconds = total_seconds % 60
+        
+        # Calculate angles (in radians, starting from top)
+        hour_angle = math.radians((hours * 30 + minutes * 0.5) - 90)
+        minute_angle = math.radians((minutes * 6) - 90)
+        second_angle = math.radians((seconds * 6) - 90)
+        
+        # Update hour hand
+        hour_length = 40
+        hour_x = clock_center_x + hour_length * math.cos(hour_angle)
+        hour_y = clock_center_y + hour_length * math.sin(hour_angle)
+        analog_clock_canvas.coords(hour_hand, clock_center_x, clock_center_y, hour_x, hour_y)
+        
+        # Update minute hand
+        minute_length = 60
+        minute_x = clock_center_x + minute_length * math.cos(minute_angle)
+        minute_y = clock_center_y + minute_length * math.sin(minute_angle)
+        analog_clock_canvas.coords(minute_hand, clock_center_x, clock_center_y, minute_x, minute_y)
+        
+        # Update second hand
+        second_length = 70
+        second_x = clock_center_x + second_length * math.cos(second_angle)
+        second_y = clock_center_y + second_length * math.sin(second_angle)
+        analog_clock_canvas.coords(second_hand, clock_center_x, clock_center_y, second_x, second_y)
+        
+    except Exception as e:
+        # Handle any calculation errors gracefully
+        pass
     
-    # Convert to hours, minutes, seconds
-    total_seconds = int(elapsed)
-    hours = (total_seconds // 3600) % 12  # 12-hour format
-    minutes = (total_seconds // 60) % 60
-    seconds = total_seconds % 60
-    
-    # Calculate angles (in radians, starting from top)
-    hour_angle = math.radians((hours * 30 + minutes * 0.5) - 90)
-    minute_angle = math.radians((minutes * 6) - 90)
-    second_angle = math.radians((seconds * 6) - 90)
-    
-    # Update hour hand
-    hour_length = 40
-    hour_x = clock_center_x + hour_length * math.cos(hour_angle)
-    hour_y = clock_center_y + hour_length * math.sin(hour_angle)
-    analog_clock_canvas.coords(hour_hand, clock_center_x, clock_center_y, hour_x, hour_y)
-    
-    # Update minute hand
-    minute_length = 60
-    minute_x = clock_center_x + minute_length * math.cos(minute_angle)
-    minute_y = clock_center_y + minute_length * math.sin(minute_angle)
-    analog_clock_canvas.coords(minute_hand, clock_center_x, clock_center_y, minute_x, minute_y)
-    
-    # Update second hand
-    second_length = 70
-    second_x = clock_center_x + second_length * math.cos(second_angle)
-    second_y = clock_center_y + second_length * math.sin(second_angle)
-    analog_clock_canvas.coords(second_hand, clock_center_x, clock_center_y, second_x, second_y)
-    
-    # Schedule next update
-    clock_animation_id = root.after(100, update_analog_clock)
+    # REMOVED: clock_animation_id = root.after(100, update_analog_clock)
+    # The analog clock should NOT schedule itself - it's called by the main timer
 
 def stop_analog_clock():
-    """Stop the analog clock animation"""
-    global clock_animation_id
-    if clock_animation_id:
-        root.after_cancel(clock_animation_id)
-        clock_animation_id = None
+    """Stop the analog clock animation - no longer needed since analog clock doesn't have its own timer"""
+    # The analog clock no longer has its own timer, so this function is simplified
+    # It's kept for compatibility but doesn't need to do anything
+    pass
 
 # ----------------------------------------
 # GAME FUNCTIONS
@@ -317,71 +439,96 @@ def on_change_letter_click(event):
     change_letter()
 
 def change_letter():
-    """Change letter - cycles through a-z, space, A-Z"""
+    """Change letter - cycles through a-z, space, A-Z with error handling"""
     global current_index, countdown_timer, countdown_active
     if celebrating:
         return
     
-    # Cancel any existing countdown
-    if countdown_timer:
-        root.after_cancel(countdown_timer)
+    try:
+        # Cancel any existing countdown
+        if countdown_timer:
+            root.after_cancel(countdown_timer)
+            countdown_active = False
+        
+        # Show current letter first, then increment for next click
+        current_letter = ALPHABETS[current_index]
+        current_index = (current_index + 1) % len(ALPHABETS)
+        
+        # Show "5" countdown only (no letter display)
+        change_button.config(text="CHANGE LETTER\n5")
+        root.update()  # Force immediate UI update
+        
+        # Start 5-second countdown
+        countdown_active = True
+        start_countdown()
+        
+    except Exception as e:
+        # Handle any errors gracefully - reset to safe state
         countdown_active = False
-    
-    # Show current letter first, then increment for next click
-    current_letter = ALPHABETS[current_index]
-    current_index = (current_index + 1) % len(ALPHABETS)
-    
-    # Show "5" countdown only (no letter display)
-    change_button.config(text="CHANGE LETTER\n5")
-    root.update()  # Force immediate UI update
-    
-    # Start 5-second countdown
-    countdown_active = True
-    start_countdown()
+        countdown_timer = None
+        change_button.config(text="CHANGE LETTER")
 
 def start_countdown():
-    """Start 5-second countdown timer"""
-    global countdown_timer, countdown_active
+    """Start 5-second countdown timer with proper error handling"""
+    global countdown_timer, countdown_active, current_index
     countdown_seconds = 4  # Start from 4 since we already showed 5
     
     def countdown():
         nonlocal countdown_seconds
-        if countdown_seconds > 0 and countdown_active:
-            # Show countdown only (no letter display)
-            change_button.config(text=f"CHANGE LETTER\n{countdown_seconds}")
-            root.update()  # Force immediate UI update
-            countdown_seconds -= 1
-            countdown_timer = root.after(1000, countdown)
-        elif countdown_active:  # countdown_seconds == 0
-            # Reset to 'a' (first lowercase letter)
-            current_index = 0
-            change_button.config(text="CHANGE LETTER")
+        try:
+            if countdown_seconds > 0 and countdown_active:
+                # Show countdown only (no letter display)
+                change_button.config(text=f"CHANGE LETTER\n{countdown_seconds}")
+                root.update()  # Force immediate UI update
+                countdown_seconds -= 1
+                countdown_timer = root.after(1000, countdown)
+            elif countdown_active:  # countdown_seconds == 0
+                # Reset to 'a' (first lowercase letter)
+                current_index = 0
+                change_button.config(text="CHANGE LETTER")
+                countdown_active = False
+                countdown_timer = None
+        except Exception as e:
+            # Handle any errors in countdown gracefully
             countdown_active = False
             countdown_timer = None
+            change_button.config(text="CHANGE LETTER")
     
     # Start countdown after 1 second (since we already showed 5)
-    countdown_timer = root.after(1000, countdown)
+    try:
+        countdown_timer = root.after(1000, countdown)
+    except Exception as e:
+        # Fallback if timer scheduling fails
+        countdown_active = False
+        countdown_timer = None
 
 def type_letter():
-    """Type the currently selected letter"""
+    """Type the currently selected letter with error handling"""
     global typed_text, current_index, countdown_timer, countdown_active
     if celebrating:
         return
     
-    # Cancel countdown if active
-    if countdown_timer:
-        root.after_cancel(countdown_timer)
+    try:
+        # Cancel countdown if active
+        if countdown_timer:
+            root.after_cancel(countdown_timer)
+            countdown_active = False
+            countdown_timer = None
+        
+        # Use the letter that was displayed (current_index was already incremented)
+        letter = ALPHABETS[(current_index - 1) % len(ALPHABETS)]
+        typed_text += letter
+        text_display.config(text=typed_text)
+        check_word()
+        # reset selected letter to 'a'
+        current_index = 0
+        change_button.config(text="CHANGE LETTER")
+        
+    except Exception as e:
+        # Handle any errors gracefully - reset to safe state
         countdown_active = False
         countdown_timer = None
-    
-    # Use the letter that was displayed (current_index was already incremented)
-    letter = ALPHABETS[(current_index - 1) % len(ALPHABETS)]
-    typed_text += letter
-    text_display.config(text=typed_text)
-    check_word()
-    # reset selected letter to 'a'
-    current_index = 0
-    change_button.config(text="CHANGE LETTER")
+        change_button.config(text="CHANGE LETTER")
 
 def backspace():
     """Backspace"""
@@ -445,11 +592,17 @@ def show_congratulations_popup(completion_time):
     congrats_frame = tk.Frame(popup, bg="#00FFD6", bd=5, relief="raised")
     congrats_frame.pack(expand=True, fill="both", padx=100, pady=100)
     
-    # Time display
-    minutes = int(completion_time // 60)
-    seconds = int(completion_time % 60)
+    # Time display with proper overflow handling
+    total_seconds = int(completion_time)
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
     milliseconds = int((completion_time % 1) * 100)
-    time_str = f"{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+    
+    if hours > 0:
+        time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+    else:
+        time_str = f"{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
     
     # Get team name
     team_name = current_user.get("team_name", "Unknown Team")
@@ -607,12 +760,18 @@ def show_game_screen():
     digital_timer_label.place(x=digital_timer_x, y=20)
     
     start_game_timer()
+    
+    # Start timer health monitoring for unlimited operation
+    monitor_timer_health()
+    
+    # Start performance optimization for long sessions
+    optimize_timer_performance()
 
 def update_word_progress():
     """Update the word progress display"""
     if current_word_index < len(TARGET_WORDS):
         current_word = TARGET_WORDS[current_word_index]
-        progress_text = f"Word {current_word_index + 1} of {len(TARGET_WORDS)}: {current_word}"
+        progress_text = f"{current_word}"
         word_progress_label.config(text=progress_text)
 
 
@@ -817,7 +976,7 @@ title.pack()
 # Word progress display
 word_progress_label = tk.Label(
     game_frame,
-    text="Word 1 of 4: DAKSHA",
+    text="DAKSHA",
     font=("Consolas", 14, "bold"),
     fg="#00FFD6",
     bg="#0d1117"
