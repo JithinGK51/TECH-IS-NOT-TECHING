@@ -24,7 +24,11 @@ TARGET_WORDS = ["a"]
 
 
 
-ALPHABETS = [chr(i) for i in range(97, 123)] + [" "] + [chr(i) for i in range(65, 91)]  # a-z, space, A-Z
+ALPHABETS = [chr(i) for i in range(97, 123)] + [" "] + [chr(i) for i in range(65, 91)] + ["⭐"]  # a-z, space, A-Z, star
+
+# BRO CHANGES OF THE ALPHABETS IS HERE UPPER CASE IS HERE
+
+
 LEADERBOARD_FILE = "leaderboard.json"
 
 # Global variables
@@ -661,7 +665,18 @@ def show_congratulations_popup(completion_time):
 
     passkey_text = tk.Label(
         passkey_display_frame,
+
+
+
+
+        
         text="831733",
+
+
+
+
+
+
         font=("Consolas", 32, "bold"),
         fg="#00FFD6",
         bg="#0d1117",
