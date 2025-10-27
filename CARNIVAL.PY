@@ -9,7 +9,21 @@ import math
 # ----------------------------------------
 # CONFIGURATION
 # ----------------------------------------
-TARGET_WORDS = ["Daksha Carnival"]
+
+
+
+#TARGET WORDS IS HERE                                                                           WORLD BRO
+
+
+
+
+TARGET_WORDS = ["a"]
+
+
+#-------------------------------------------------------------
+
+
+
 ALPHABETS = [chr(i) for i in range(97, 123)] + [" "] + [chr(i) for i in range(65, 91)]  # a-z, space, A-Z
 LEADERBOARD_FILE = "leaderboard.json"
 
@@ -610,7 +624,7 @@ def show_congratulations_popup(completion_time):
     # Congratulations text
     congrats_label = tk.Label(
         congrats_frame,
-        text=f"DAKSHA CARNIVAL ROUND 5\n\n🎊 CONGRATULATIONS! 🎊\n\n👥 TEAM: {team_name}\n\n✨ YOU DID IT! ✨\n\n🎯 ALL WORDS COMPLETED! 🎯\n\n⏱️ TIME: {time_str}\n\n🏆 BEST DECISION EVER! 🏆\n\n🌟 AMAZING WORK! 🌟",
+        text=f"DAKSHA CARNIVAL ROUND 5\n\n🎊 CONGRATULATIONS! 🎊\n\n👥 TEAM: {team_name}\n\n✨ YOU DID IT! ✨\n\n🎯 ALL WORDS COMPLETED! 🎯\n\n⏱️ TIME: {time_str}\n\n🏆 BEST DECISION EVER! 🏆",
         font=("Orbitron", 20, "bold"),
         fg="#0d1117",
         bg="#00FFD6",
@@ -618,20 +632,55 @@ def show_congratulations_popup(completion_time):
     )
     congrats_label.pack(expand=True, fill="both", padx=30, pady=20)
     
-    # Play again button (centered)
-    play_again_btn = tk.Button(
-        congrats_frame,
-        text="🎮 PLAY AGAIN 🎮",
-        font=("Consolas", 14, "bold"),
+    # Pass key display - Enhanced styling
+    passkey_frame = tk.Frame(congrats_frame, bg="#00FFD6", relief="raised", bd=3)
+    passkey_frame.pack(pady=20, padx=30, fill="x")
+    
+    # Pass key title
+    passkey_label = tk.Label(
+        passkey_frame,
+        text="🔑 YOUR PASS KEY 🔑",
+        font=("Orbitron", 18, "bold"),
+        fg="#0d1117",
+        bg="#00FFD6"
+    )
+    passkey_label.pack(pady=(15, 10))
+    
+    # Pass key display - Enhanced with better styling
+    passkey_display_frame = tk.Frame(passkey_frame, bg="#0d1117", relief="sunken", bd=4)
+    passkey_display_frame.pack(pady=(0, 15), padx=20, fill="x")
+    
+    
+    
+    
+    #KEY PASS NUMBER IS HERE                                                                     KEY BRO
+
+
+
+
+
+    passkey_text = tk.Label(
+        passkey_display_frame,
+        text="831733",
+        font=("Consolas", 32, "bold"),
         fg="#00FFD6",
         bg="#0d1117",
-        activebackground="#21262D",
-        activeforeground="#00FFD6",
-        relief="raised",
-        bd=3,
-        command=lambda: [popup.destroy(), end_celebration()]
+        relief="flat",
+        bd=0,
+        padx=30,
+        pady=20
     )
-    play_again_btn.pack(pady=20)
+    passkey_text.pack(expand=True, fill="both")
+    
+    # Copy instruction
+    copy_instruction = tk.Label(
+        passkey_frame,
+        text="📋 Click to copy or write down this pass key",
+        font=("Consolas", 12, "italic"),
+        fg="#0d1117",
+        bg="#00FFD6"
+    )
+    copy_instruction.pack(pady=(0, 15))
     
     # Popup stays open until user manually closes or clicks a button
 
@@ -778,12 +827,21 @@ def update_word_progress():
 # ----------------------------------------
 # HOME SCREEN FUNCTIONS
 # ----------------------------------------
+def validate_team_number(char):
+    """Validate that only integers are entered in team number field"""
+    return char.isdigit() or char == ""
+
 def start_game():
     """Start the game with user validation"""
     team_name = team_name_entry.get().strip()
     
     if not team_name:
-        messagebox.showerror("Error", "Please enter your team name!")
+        messagebox.showerror("Error", "Please enter your team number!")
+        return
+    
+    # Validate that team number contains only integers
+    if not team_name.isdigit():
+        messagebox.showerror("Error", "Team number must contain only numbers (0-9)!")
         return
     
     # Store user data
@@ -893,21 +951,26 @@ guide_label.pack(pady=20)
 input_frame = tk.Frame(home_frame, bg="#0d1117")
 input_frame.pack(pady=30)
 
-# Team name input
+# Team number input
 team_name_label = tk.Label(
     input_frame,
-    text="👥 TEAM REGISTRATION:",
+    text="👥 TEAM NUMBER:",
     font=("Consolas", 16, "bold"),
     fg="#FFFFFF",
     bg="#0d1117"
 )
 team_name_label.pack(pady=10)
 
+# Create validation command for integer input only
+validate_cmd = root.register(validate_team_number)
+
 team_name_entry = tk.Entry(
     input_frame,
     font=("Consolas", 14),
     width=30,
-    justify="center"
+    justify="center",
+    validate="key",
+    validatecommand=(validate_cmd, "%S")
 )
 team_name_entry.pack(pady=5)
 
