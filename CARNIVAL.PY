@@ -945,7 +945,7 @@ guide_label = tk.Label(
     text=(
         "🎮 INTERACTIVE TYPING CHALLENGE\n"
         "Professional Mouse-Controlled Interface\n\n"
-        "🖱️ LEFT CLICK ANYWHERE → Navigate Letters (a-z → space → A-Z)\n"
+        "🖱️ LEFT CLICK ANYWHERE → Navigate Letters (⭐ → a-z → space → A-Z → ⭐)\n"
         "⏰ AUTO-TIMEOUT → 5-second countdown resets to 'a'\n"
         "🖱️ RIGHT CLICK ANYWHERE → Input Selected Letter\n"
         "⌫ BACKSPACE KEY → Remove Last Character\n\n"
@@ -1065,7 +1065,7 @@ info = tk.Label(
     game_frame,
     text=(
         "🎮 INTERACTIVE TYPING CHALLENGE - Professional Interface\n"
-        "🔄 LEFT CLICK ANYWHERE → Navigate Letters (a-z → space → A-Z)\n"
+        "🔄 LEFT CLICK ANYWHERE → Navigate Letters (⭐ → a-z → space → A-Z → ⭐)\n"
         "⏰ AUTO-TIMEOUT → 5-second countdown resets to 'a'\n"
         "✍️ RIGHT CLICK ANYWHERE → Input Selected Letter\n"
         "⌫ BACKSPACE KEY → Remove Last Character\n\n"
