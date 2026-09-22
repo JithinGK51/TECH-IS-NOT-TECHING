@@ -3,6 +3,7 @@ from tkinter import messagebox, ttk
 import random
 import json
 import os
+import sys
 import time
 import math
 
@@ -10,14 +11,37 @@ import math
 # CONFIGURATION
 # ----------------------------------------
 
+# Base directory for executable or script
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+TARGET_CONFIG_FILE = os.path.join(BASE_DIR, "target_config.json")
+LEADERBOARD_FILE = os.path.join(BASE_DIR, "leaderboard.json")
 
-#TARGET WORDS IS HERE                                                                           WORLD BRO
-
-
-
-
+# TARGET WORDS
 TARGET_WORDS = ["a"]
+
+def load_target_words():
+    global TARGET_WORDS
+    if os.path.exists(TARGET_CONFIG_FILE):
+        try:
+            with open(TARGET_CONFIG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    TARGET_WORDS = data
+        except Exception:
+            pass
+
+def save_target_words():
+    try:
+        with open(TARGET_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(TARGET_WORDS, f, indent=2)
+    except Exception:
+        pass
+
+load_target_words()
 
 
 #-------------------------------------------------------------
@@ -27,9 +51,6 @@ TARGET_WORDS = ["a"]
 ALPHABETS = [chr(i) for i in range(97, 123)] + [" "] + [chr(i) for i in range(65, 91)] + ["⭐"]  # a-z, space, A-Z, star
 
 # BRO CHANGES OF THE ALPHABETS IS HERE UPPER CASE IS HERE
-
-
-LEADERBOARD_FILE = "leaderboard.json"
 
 # Global variables
 current_index = 0
@@ -558,8 +579,10 @@ def backspace():
         text_display.config(text=typed_text)
 
 def block_keys(event):
-    """Block all keys except Backspace"""
+    """Block all keys except Backspace during gameplay only"""
     global typed_text
+    if current_screen != "game":
+        return
     if event.keysym == "BackSpace" and not celebrating:
         if typed_text:
             typed_text = typed_text[:-1]
@@ -793,6 +816,30 @@ def hide_all_screens():
         home_frame.pack_forget()
     if 'game_frame' in globals():
         game_frame.pack_forget()
+    if 'admin_frame' in globals():
+        admin_frame.pack_forget()
+
+def update_guide_text():
+    """Update guide instructions on home screen to reflect target words"""
+    try:
+        if 'guide_label' in globals() and guide_label.winfo_exists():
+            guide_label.config(
+                text=(
+                    "🎮 INTERACTIVE TYPING CHALLENGE\n"
+                    "Professional Mouse-Controlled Interface\n\n"
+                    "🖱️ LEFT CLICK ANYWHERE → Navigate Letters (⭐ → a-z → space → A-Z → ⭐)\n"
+                    "⏰ AUTO-TIMEOUT → 5-second countdown resets to 'a'\n"
+                    "🖱️ RIGHT CLICK ANYWHERE → Input Selected Letter\n"
+                    "⌫ BACKSPACE KEY → Remove Last Character\n\n"
+                    f"🎯 OBJECTIVE: Complete the phrase: {' → '.join(TARGET_WORDS)}\n"
+                    "⏱️ TIMER: Starts automatically upon first input\n\n"
+                    "🖱️ Left Click = Letter Selection | Right Click = Letter Input\n"
+                    "⌨️ Backspace = Character Deletion\n"
+                    "🚪 ESC Key = Exit Application"
+                )
+            )
+    except Exception:
+        pass
 
 def show_home_screen():
     """Show home screen"""
@@ -802,6 +849,7 @@ def show_home_screen():
     home_frame.pack(expand=True, fill="both")
     # Show mouse cursor on home screen
     root.config(cursor="")
+    update_guide_text()
 
 def show_game_screen():
     """Show game screen and start timer"""
@@ -814,6 +862,7 @@ def show_game_screen():
     # Reset word progress
     current_word_index = 0
     update_word_progress()
+    update_objective_text()
     
     # Create analog clock on the left side
     create_analog_clock()
@@ -838,18 +887,66 @@ def update_word_progress():
         progress_text = f"{current_word}"
         word_progress_label.config(text=progress_text)
 
+def update_objective_text():
+    """Update the game objective text to match current TARGET_WORDS"""
+    try:
+        if 'info' in globals() and info.winfo_exists():
+            info.config(
+                text=(
+                    "🎮 INTERACTIVE TYPING CHALLENGE - Professional Interface\n"
+                    "🔄 LEFT CLICK ANYWHERE → Navigate Letters (⭐ → a-z → space → A-Z → ⭐)\n"
+                    "⏰ AUTO-TIMEOUT → 5-second countdown resets to 'a'\n"
+                    "✍️ RIGHT CLICK ANYWHERE → Input Selected Letter\n"
+                    "⌫ BACKSPACE KEY → Remove Last Character\n\n"
+                    f"🎯 OBJECTIVE: Complete the phrase: {' → '.join(TARGET_WORDS)}\n"
+                    "⏱️ TIMER: Active and tracking your progress\n"
+                    "🖱️ Left Click = Letter Selection | Right Click = Letter Input\n"
+                    "⌨️ Backspace = Character Deletion\n"
+                    "🚪 ESC Key = Exit Application"
+                )
+            )
+    except Exception:
+        pass
+
 
 # ----------------------------------------
-# HOME SCREEN FUNCTIONS
+# HOME SCREEN FUNCTIONS & ADMIN CONFIG
 # ----------------------------------------
 def validate_team_number(char):
     """Validate that only integers are entered in team number field"""
     return char.isdigit() or char == ""
 
+def show_admin_screen():
+    """Show admin target configuration screen directly inside fullscreen window"""
+    global current_screen
+    current_screen = "admin"
+    hide_all_screens()
+    admin_frame.pack(expand=True, fill="both")
+    root.config(cursor="")
+    admin_target_entry.delete(0, tk.END)
+    admin_target_entry.insert(0, ", ".join(TARGET_WORDS))
+    admin_current_label.config(text=f"Current Target: {', '.join(TARGET_WORDS)}")
+    admin_status_label.config(text="")
+    admin_target_entry.focus_set()
+    admin_target_entry.select_range(0, tk.END)
+
+def check_admin_code(event=None):
+    """Check if the secret admin code (8317332769 or 831732769) is typed in team number"""
+    val = team_name_entry.get().strip()
+    if val in ("8317332769", "831732769"):
+        team_name_entry.delete(0, tk.END)
+        show_admin_screen()
+
 def start_game():
     """Start the game with user validation"""
     team_name = team_name_entry.get().strip()
     
+    # Check if secret admin code was entered before clicking start
+    if team_name in ("8317332769", "831732769"):
+        team_name_entry.delete(0, tk.END)
+        show_admin_screen()
+        return
+
     if not team_name:
         messagebox.showerror("Error", "Please enter your team number!")
         return
@@ -903,6 +1000,9 @@ root.attributes('-fullscreen', True)
 
 # Bind ESC key to exit
 def exit_game(event=None):
+    if current_screen == "admin":
+        show_home_screen()
+        return
     if messagebox.askokcancel("Exit Game", "Are you sure you want to exit the DAKSHA CARNIVAL?"):
         root.destroy()
 
@@ -988,6 +1088,8 @@ team_name_entry = tk.Entry(
     validatecommand=(validate_cmd, "%S")
 )
 team_name_entry.pack(pady=5)
+team_name_entry.bind("<KeyRelease>", check_admin_code)
+team_name_entry.bind("<Return>", lambda e: start_game())
 
 # Start game button (centered)
 start_btn = tk.Button(
@@ -1005,6 +1107,128 @@ start_btn = tk.Button(
     command=start_game
 )
 start_btn.pack(pady=40)
+
+# ----------------------------------------
+# ADMIN SCREEN FRAME
+# ----------------------------------------
+admin_frame = tk.Frame(root, bg="#0d1117")
+
+admin_title = tk.Label(
+    admin_frame,
+    text="⚙️ ADMIN CONFIGURATION ⚙️\n⚡ TARGET WORDS SETTINGS ⚡",
+    font=("Orbitron", 30, "bold"),
+    fg="#00FFD6",
+    bg="#0d1117"
+)
+admin_title.pack(pady=(50, 15))
+
+admin_info = tk.Label(
+    admin_frame,
+    text=(
+        "Enter the target phrase for players to type.\n"
+        "For multiple sequential target words, separate them with commas\n"
+        "(e.g., 'Word 1, Word 2' or 'Daksha Carnival')."
+    ),
+    font=("Consolas", 13),
+    fg="#FFFFFF",
+    bg="#0d1117",
+    justify="center"
+)
+admin_info.pack(pady=12)
+
+admin_current_label = tk.Label(
+    admin_frame,
+    text=f"Current Target: {', '.join(TARGET_WORDS)}",
+    font=("Consolas", 15, "bold"),
+    fg="#FFA500",
+    bg="#0d1117"
+)
+admin_current_label.pack(pady=8)
+
+admin_target_entry = tk.Entry(
+    admin_frame,
+    font=("Consolas", 18, "bold"),
+    width=35,
+    justify="center",
+    bg="#161B22",
+    fg="#00FFD6",
+    insertbackground="#00FFD6",
+    relief="sunken",
+    bd=3
+)
+admin_target_entry.pack(pady=12)
+
+admin_status_label = tk.Label(
+    admin_frame,
+    text="",
+    font=("Consolas", 13, "bold"),
+    fg="#00FF00",
+    bg="#0d1117"
+)
+admin_status_label.pack(pady=5)
+
+def save_admin_target(event=None):
+    global TARGET_WORDS
+    new_val = admin_target_entry.get().strip()
+    if not new_val:
+        admin_status_label.config(text="❌ Target phrase cannot be empty!", fg="#FF0055")
+        return
+
+    if "," in new_val:
+        words = [w.strip() for w in new_val.split(",") if w.strip()]
+    else:
+        words = [new_val]
+
+    if not words:
+        admin_status_label.config(text="❌ Target phrase cannot be empty!", fg="#FF0055")
+        return
+
+    TARGET_WORDS = words
+    save_target_words()
+    update_word_progress()
+    update_objective_text()
+    update_guide_text()
+    admin_current_label.config(text=f"Current Target: {', '.join(TARGET_WORDS)}")
+    admin_status_label.config(text=f"✅ Target updated to: {' → '.join(TARGET_WORDS)}! Returning to Home...", fg="#00FF00")
+    root.after(1200, show_home_screen)
+
+admin_btn_frame = tk.Frame(admin_frame, bg="#0d1117")
+admin_btn_frame.pack(pady=20)
+
+admin_save_btn = tk.Button(
+    admin_btn_frame,
+    text="💾 SAVE TARGET",
+    font=("Orbitron", 13, "bold"),
+    fg="#FFFFFF",
+    bg="#238636",
+    activebackground="#2ea043",
+    activeforeground="#FFFFFF",
+    relief="raised",
+    bd=3,
+    padx=18,
+    pady=6,
+    command=save_admin_target
+)
+admin_save_btn.pack(side="left", padx=12)
+
+admin_back_btn = tk.Button(
+    admin_btn_frame,
+    text="🔙 BACK TO HOME",
+    font=("Orbitron", 13, "bold"),
+    fg="#FFFFFF",
+    bg="#30363D",
+    activebackground="#21262D",
+    activeforeground="#00FFD6",
+    relief="raised",
+    bd=3,
+    padx=18,
+    pady=6,
+    command=show_home_screen
+)
+admin_back_btn.pack(side="left", padx=12)
+
+admin_target_entry.bind("<Return>", save_admin_target)
+admin_target_entry.bind("<Escape>", lambda e: show_home_screen())
 
 # ----------------------------------------
 # GAME SCREEN
