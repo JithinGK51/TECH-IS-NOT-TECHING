@@ -3,15 +3,54 @@ from tkinter import messagebox, ttk
 import random
 import json
 import os
+import sys
 import time
-import pyttsx3
+import math
 
 # ----------------------------------------
 # CONFIGURATION
 # ----------------------------------------
-TARGET_WORDS = ["Daksha Carnival"]
-ALPHABETS = [chr(i) for i in range(97, 123)] + [" "] + [chr(i) for i in range(65, 91)]  # a-z, space, A-Z
-LEADERBOARD_FILE = "leaderboard.json"
+
+# Base directory for executable or script
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+TARGET_CONFIG_FILE = os.path.join(BASE_DIR, "target_config.json")
+LEADERBOARD_FILE = os.path.join(BASE_DIR, "leaderboard.json")
+
+# TARGET WORDS
+TARGET_WORDS = ["a"]
+
+def load_target_words():
+    global TARGET_WORDS
+    if os.path.exists(TARGET_CONFIG_FILE):
+        try:
+            with open(TARGET_CONFIG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    TARGET_WORDS = data
+        except Exception:
+            pass
+
+def save_target_words():
+    try:
+        with open(TARGET_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(TARGET_WORDS, f, indent=2)
+    except Exception:
+        pass
+
+load_target_words()
+
+
+#-------------------------------------------------------------
+
+
+
+ALPHABETS = [chr(i) for i in range(97, 123)] + [" "] + [chr(i) for i in range(65, 91)] + ["⭐"]  # a-z, space, A-Z, star
+
+# BRO CHANGES OF THE ALPHABETS IS HERE UPPER CASE IS HERE
 
 # Global variables
 current_index = 0
@@ -22,6 +61,9 @@ glow_intensity = 100
 celebrating = False
 countdown_timer = None
 countdown_active = False
+last_cleanup_time = 0
+timer_health_check = 0
+timer_restart_count = 0
 
 # Multiple words tracking
 current_word_index = 0
@@ -33,12 +75,18 @@ game_start_time = 0
 game_timer_id = None
 game_timer_running = False
 
-# Voice announcement variables
-last_minute_announced = 0
-voice_engine = None
-
 # Screen management
 current_screen = "home"  # home, game
+
+# Analog clock variables
+analog_clock_canvas = None
+clock_center_x = 0
+clock_center_y = 0
+clock_radius = 0
+hour_hand = None
+minute_hand = None
+second_hand = None
+# clock_animation_id removed - analog clock no longer has its own timer
 
 # ----------------------------------------
 # LEADERBOARD FUNCTIONS
@@ -84,48 +132,60 @@ def add_to_leaderboard(team_name, time_taken):
     return leaderboard
 
 # ----------------------------------------
-# VOICE FUNCTIONS
-# ----------------------------------------
-def initialize_voice():
-    """Initialize the text-to-speech engine"""
-    global voice_engine
-    try:
-        voice_engine = pyttsx3.init()
-        # Set voice properties for a professional female voice
-        voices = voice_engine.getProperty('voices')
-        for voice in voices:
-            if 'female' in voice.name.lower() or 'zira' in voice.name.lower():
-                voice_engine.setProperty('voice', voice.id)
-                break
-        voice_engine.setProperty('rate', 150)  # Speed of speech
-        voice_engine.setProperty('volume', 0.8)  # Volume level
-    except:
-        voice_engine = None
-
-def announce_minute(minute):
-    """Announce the minute milestone"""
-    global voice_engine
-    if voice_engine:
-        try:
-            if minute == 1:
-                message = "1 minute over"
-            else:
-                message = f"{minute} minutes have over"
-            voice_engine.say(message)
-            voice_engine.runAndWait()
-        except:
-            pass
-
-# ----------------------------------------
 # TIMER FUNCTIONS
 # ----------------------------------------
 def start_game_timer():
-    """Start the game timer"""
-    global game_start_time, game_timer_id, game_timer_running, last_minute_announced
+    """Start the game timer with unlimited operation and health monitoring"""
+    global game_start_time, game_timer_id, game_timer_running, timer_health_check, timer_restart_count
     game_start_time = time.time()
     game_timer_running = True
-    last_minute_announced = 0
+    timer_health_check = 0
+    timer_restart_count = 0
     update_game_timer()
+
+def monitor_timer_health():
+    """Monitor timer health and restart if needed - runs every 10 minutes"""
+    global game_timer_running, timer_restart_count
+    
+    if game_timer_running:
+        # Check if timer is still responsive
+        try:
+            # If we can access the timer variables, it's working
+            if timer_restart_count > 5:
+                # Too many restarts, reset everything
+                stop_game_timer()
+                start_game_timer()
+        except:
+            # Timer is completely broken, restart it
+            try:
+                stop_game_timer()
+                start_game_timer()
+            except:
+                pass
+    
+    # Schedule next health check in 10 minutes
+    root.after(600000, monitor_timer_health)  # 10 minutes = 600,000 ms
+
+def optimize_timer_performance():
+    """Optimize timer performance for long-running sessions"""
+    global last_cleanup_time
+    
+    try:
+        # Force garbage collection
+        import gc
+        gc.collect()
+        
+        # Clear any accumulated tkinter objects
+        root.update_idletasks()
+        
+        # Reset cleanup timer
+        last_cleanup_time = time.time()
+        
+    except Exception as e:
+        pass
+    
+    # Schedule next optimization in 5 minutes
+    root.after(300000, optimize_timer_performance)  # 5 minutes = 300,000 ms
 
 def stop_game_timer():
     """Stop the game timer and return elapsed time"""
@@ -134,27 +194,281 @@ def stop_game_timer():
         game_timer_running = False
         if game_timer_id:
             root.after_cancel(game_timer_id)
+        # Stop analog clock animation
+        stop_analog_clock()
         return time.time() - game_start_time
     return 0
 
 def update_game_timer():
-    """Update the game timer display"""
-    global game_timer_id, last_minute_announced
+    """Update the game timer display with unlimited operation and maximum safety"""
+    global game_timer_id, game_timer_running, game_start_time, last_cleanup_time
+    global timer_health_check, timer_restart_count
+    
     if game_timer_running:
+        try:
+            elapsed = time.time() - game_start_time
+            current_time = time.time()
+            timer_health_check += 1
+            
+            # UNLIMITED OPERATION: Remove 24-hour limit for truly unlimited timer
+            # The timer can now run indefinitely without any time restrictions
+            
+            # Enhanced periodic cleanup every 2 minutes for better performance
+            if current_time - last_cleanup_time > 120:  # 2 minutes
+                last_cleanup_time = current_time
+                # Force garbage collection to clean up any accumulated objects
+                import gc
+                gc.collect()
+                
+                # Health check: restart timer if it's been running too long (every 1000 updates)
+                if timer_health_check > 1000:
+                    timer_health_check = 0
+                    timer_restart_count += 1
+                    # Restart timer to prevent any potential accumulation issues
+                    if game_timer_id:
+                        root.after_cancel(game_timer_id)
+                    # Continue with fresh timer
+                    game_timer_id = root.after(50, update_game_timer)
+                    return
+            
+            # Handle unlimited time values with robust calculation
+            total_seconds = int(elapsed)
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            milliseconds = int((elapsed % 1) * 100)
+            
+            # Format timer display - support unlimited hours
+            if hours > 0:
+                timer_text = f"⏱️ {hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+                digital_timer_text = f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+            else:
+                timer_text = f"⏱️ {minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+                digital_timer_text = f"{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+            
+            # Update displays with error protection
+            try:
+                timer_label.config(text=timer_text)
+                digital_timer_label.config(text=digital_timer_text)
+            except:
+                # If display update fails, continue anyway
+                pass
+            
+            # Update analog clock with error protection
+            try:
+                update_analog_clock()
+            except:
+                # If analog clock fails, continue anyway
+                pass
+            
+        except Exception as e:
+            # Enhanced error recovery - restart timer if needed
+            try:
+                timer_text = "⏱️ --:--.--"
+                digital_timer_text = "--:--.--"
+                timer_label.config(text=timer_text)
+                digital_timer_label.config(text=digital_timer_text)
+            except:
+                pass
+            
+            # Restart timer on critical errors
+            timer_restart_count += 1
+            if timer_restart_count < 10:  # Prevent infinite restart loops
+                game_timer_id = root.after(100, update_game_timer)  # Slower restart
+            return
+        
+        # Continue timer with enhanced error handling
+        try:
+            game_timer_id = root.after(50, update_game_timer)  # Update every 50ms for smooth display
+        except Exception as e:
+            # If timer scheduling fails, try again with longer delay
+            try:
+                game_timer_id = root.after(100, update_game_timer)
+            except:
+                # Last resort: restart the entire timer system
+                start_game_timer()
+
+# ----------------------------------------
+# ANALOG CLOCK FUNCTIONS
+# ----------------------------------------
+def create_analog_clock():
+    """Create the analog clock canvas and design"""
+    global analog_clock_canvas, clock_center_x, clock_center_y, clock_radius
+    
+    # Create canvas for analog clock
+    analog_clock_canvas = tk.Canvas(
+        game_frame,
+        width=200,
+        height=200,
+        bg="#1a1a2e",
+        highlightthickness=0,
+        relief="sunken",
+        bd=3
+    )
+    analog_clock_canvas.place(x=20, y=20)  # Left side position
+    
+    # Clock dimensions
+    clock_center_x = 100
+    clock_center_y = 100
+    clock_radius = 85
+    
+    # Draw clock face
+    draw_clock_face()
+    
+    # Initialize clock hands
+    initialize_clock_hands()
+
+def draw_clock_face():
+    """Draw the clock face with numbers and hour marks"""
+    global analog_clock_canvas, clock_center_x, clock_center_y, clock_radius
+    
+    # Outer circle
+    analog_clock_canvas.create_oval(
+        clock_center_x - clock_radius,
+        clock_center_y - clock_radius,
+        clock_center_x + clock_radius,
+        clock_center_y + clock_radius,
+        outline="#00FFD6",
+        width=3,
+        fill="#0d1117"
+    )
+    
+    # Inner circle
+    analog_clock_canvas.create_oval(
+        clock_center_x - clock_radius + 10,
+        clock_center_y - clock_radius + 10,
+        clock_center_x + clock_radius - 10,
+        clock_center_y + clock_radius - 10,
+        outline="#00FFD6",
+        width=1,
+        fill="#1a1a2e"
+    )
+    
+    # Hour marks (12 positions)
+    for i in range(12):
+        angle = math.radians(i * 30 - 90)  # Start from top (12 o'clock)
+        
+        # Calculate positions for hour marks
+        inner_radius = clock_radius - 15
+        outer_radius = clock_radius - 5
+        
+        x1 = clock_center_x + inner_radius * math.cos(angle)
+        y1 = clock_center_y + inner_radius * math.sin(angle)
+        x2 = clock_center_x + outer_radius * math.cos(angle)
+        y2 = clock_center_y + outer_radius * math.sin(angle)
+        
+        # Draw hour marks
+        analog_clock_canvas.create_line(
+            x1, y1, x2, y2,
+            fill="#00FFD6",
+            width=3
+        )
+        
+        # Add hour numbers (12, 1, 2, 3, 6, 9)
+        if i in [0, 3, 6, 9]:  # 12, 3, 6, 9 o'clock
+            number_radius = clock_radius - 25
+            num_x = clock_center_x + number_radius * math.cos(angle)
+            num_y = clock_center_y + number_radius * math.sin(angle)
+            
+            hour_text = str(12 if i == 0 else i)
+            analog_clock_canvas.create_text(
+                num_x, num_y,
+                text=hour_text,
+                fill="#00FFD6",
+                font=("Orbitron", 12, "bold")
+            )
+    
+    # Center dot
+    analog_clock_canvas.create_oval(
+        clock_center_x - 5,
+        clock_center_y - 5,
+        clock_center_x + 5,
+        clock_center_y + 5,
+        fill="#00FFD6",
+        outline="#00FFD6"
+    )
+
+def initialize_clock_hands():
+    """Initialize the clock hands"""
+    global hour_hand, minute_hand, second_hand
+    
+    # Create initial clock hands (pointing to 12:00:00)
+    hour_hand = analog_clock_canvas.create_line(
+        clock_center_x, clock_center_y,
+        clock_center_x, clock_center_y - 40,
+        fill="#FF6B6B",
+        width=4,
+        capstyle="round"
+    )
+    
+    minute_hand = analog_clock_canvas.create_line(
+        clock_center_x, clock_center_y,
+        clock_center_x, clock_center_y - 60,
+        fill="#4ECDC4",
+        width=3,
+        capstyle="round"
+    )
+    
+    second_hand = analog_clock_canvas.create_line(
+        clock_center_x, clock_center_y,
+        clock_center_x, clock_center_y - 70,
+        fill="#FFE66D",
+        width=2,
+        capstyle="round"
+    )
+
+def update_analog_clock():
+    """Update the analog clock hands based on elapsed time - NO INDEPENDENT TIMER"""
+    # This function should ONLY be called by the main timer, not schedule itself
+    
+    if not game_timer_running or not analog_clock_canvas:
+        return
+    
+    try:
+        # Calculate elapsed time with overflow protection
         elapsed = time.time() - game_start_time
-        minutes = int(elapsed // 60)
-        seconds = int(elapsed % 60)
-        milliseconds = int((elapsed % 1) * 100)
         
-        # Check if we need to announce a new minute
-        if minutes > last_minute_announced and minutes > 0:
-            last_minute_announced = minutes
-            announce_minute(minutes)
+        # Convert to hours, minutes, seconds with proper modulo operations
+        total_seconds = int(elapsed)
+        hours = (total_seconds // 3600) % 12  # 12-hour format
+        minutes = (total_seconds // 60) % 60
+        seconds = total_seconds % 60
         
-        timer_text = f"🕐 {minutes:02d}:{seconds:02d}.{milliseconds:02d}"
-        timer_label.config(text=timer_text)
+        # Calculate angles (in radians, starting from top)
+        hour_angle = math.radians((hours * 30 + minutes * 0.5) - 90)
+        minute_angle = math.radians((minutes * 6) - 90)
+        second_angle = math.radians((seconds * 6) - 90)
         
-        game_timer_id = root.after(50, update_game_timer)  # Update every 50ms for smooth display
+        # Update hour hand
+        hour_length = 40
+        hour_x = clock_center_x + hour_length * math.cos(hour_angle)
+        hour_y = clock_center_y + hour_length * math.sin(hour_angle)
+        analog_clock_canvas.coords(hour_hand, clock_center_x, clock_center_y, hour_x, hour_y)
+        
+        # Update minute hand
+        minute_length = 60
+        minute_x = clock_center_x + minute_length * math.cos(minute_angle)
+        minute_y = clock_center_y + minute_length * math.sin(minute_angle)
+        analog_clock_canvas.coords(minute_hand, clock_center_x, clock_center_y, minute_x, minute_y)
+        
+        # Update second hand
+        second_length = 70
+        second_x = clock_center_x + second_length * math.cos(second_angle)
+        second_y = clock_center_y + second_length * math.sin(second_angle)
+        analog_clock_canvas.coords(second_hand, clock_center_x, clock_center_y, second_x, second_y)
+        
+    except Exception as e:
+        # Handle any calculation errors gracefully
+        pass
+    
+    # REMOVED: clock_animation_id = root.after(100, update_analog_clock)
+    # The analog clock should NOT schedule itself - it's called by the main timer
+
+def stop_analog_clock():
+    """Stop the analog clock animation - no longer needed since analog clock doesn't have its own timer"""
+    # The analog clock no longer has its own timer, so this function is simplified
+    # It's kept for compatibility but doesn't need to do anything
+    pass
 
 # ----------------------------------------
 # GAME FUNCTIONS
@@ -164,67 +478,96 @@ def on_change_letter_click(event):
     change_letter()
 
 def change_letter():
-    """Change letter - cycles through A-Z, a-z, space"""
+    """Change letter - cycles through a-z, space, A-Z with error handling"""
     global current_index, countdown_timer, countdown_active
     if celebrating:
         return
     
-    # Cancel any existing countdown
-    if countdown_timer:
-        root.after_cancel(countdown_timer)
+    try:
+        # Cancel any existing countdown
+        if countdown_timer:
+            root.after_cancel(countdown_timer)
+            countdown_active = False
+        
+        # Show current letter first, then increment for next click
+        current_letter = ALPHABETS[current_index]
+        current_index = (current_index + 1) % len(ALPHABETS)
+        
+        # Show "5" countdown only (no letter display)
+        change_button.config(text="CHANGE LETTER\n5")
+        root.update()  # Force immediate UI update
+        
+        # Start 5-second countdown
+        countdown_active = True
+        start_countdown()
+        
+    except Exception as e:
+        # Handle any errors gracefully - reset to safe state
         countdown_active = False
-    
-    current_index = (current_index + 1) % len(ALPHABETS)
-    
-    # Show "5" immediately when button is clicked
-    change_button.config(text="CHANGE LETTER\n5")
-    root.update()  # Force immediate UI update
-    
-    # Start 5-second countdown
-    countdown_active = True
-    start_countdown()
+        countdown_timer = None
+        change_button.config(text="CHANGE LETTER")
 
 def start_countdown():
-    """Start 5-second countdown timer"""
-    global countdown_timer, countdown_active
+    """Start 5-second countdown timer with proper error handling"""
+    global countdown_timer, countdown_active, current_index
     countdown_seconds = 4  # Start from 4 since we already showed 5
     
     def countdown():
         nonlocal countdown_seconds
-        if countdown_seconds > 0 and countdown_active:
-            change_button.config(text=f"CHANGE LETTER\n{countdown_seconds}")
-            root.update()  # Force immediate UI update
-            countdown_seconds -= 1
-            countdown_timer = root.after(1000, countdown)
-        elif countdown_active:  # countdown_seconds == 0
-            # Reset to 'a' (first lowercase letter)
-            current_index = 0
-            change_button.config(text="CHANGE LETTER")
+        try:
+            if countdown_seconds > 0 and countdown_active:
+                # Show countdown only (no letter display)
+                change_button.config(text=f"CHANGE LETTER\n{countdown_seconds}")
+                root.update()  # Force immediate UI update
+                countdown_seconds -= 1
+                countdown_timer = root.after(1000, countdown)
+            elif countdown_active:  # countdown_seconds == 0
+                # Reset to 'a' (first lowercase letter)
+                current_index = 0
+                change_button.config(text="CHANGE LETTER")
+                countdown_active = False
+                countdown_timer = None
+        except Exception as e:
+            # Handle any errors in countdown gracefully
             countdown_active = False
             countdown_timer = None
+            change_button.config(text="CHANGE LETTER")
     
     # Start countdown after 1 second (since we already showed 5)
-    countdown_timer = root.after(1000, countdown)
+    try:
+        countdown_timer = root.after(1000, countdown)
+    except Exception as e:
+        # Fallback if timer scheduling fails
+        countdown_active = False
+        countdown_timer = None
 
 def type_letter():
-    """Type the currently selected letter"""
+    """Type the currently selected letter with error handling"""
     global typed_text, current_index, countdown_timer, countdown_active
     if celebrating:
         return
     
-    # Cancel countdown if active
-    if countdown_timer:
-        root.after_cancel(countdown_timer)
+    try:
+        # Cancel countdown if active
+        if countdown_timer:
+            root.after_cancel(countdown_timer)
+            countdown_active = False
+            countdown_timer = None
+        
+        # Use the letter that was displayed (current_index was already incremented)
+        letter = ALPHABETS[(current_index - 1) % len(ALPHABETS)]
+        typed_text += letter
+        text_display.config(text=typed_text)
+        check_word()
+        # reset selected letter to 'a'
+        current_index = 0
+        change_button.config(text="CHANGE LETTER")
+        
+    except Exception as e:
+        # Handle any errors gracefully - reset to safe state
         countdown_active = False
         countdown_timer = None
-    
-    letter = ALPHABETS[current_index]
-    typed_text += letter
-    text_display.config(text=typed_text)
-    check_word()
-    # reset selected letter to 'a'
-    current_index = 0
-    change_button.config(text="CHANGE LETTER")
+        change_button.config(text="CHANGE LETTER")
 
 def backspace():
     """Backspace"""
@@ -236,8 +579,10 @@ def backspace():
         text_display.config(text=typed_text)
 
 def block_keys(event):
-    """Block all keys except Backspace"""
+    """Block all keys except Backspace during gameplay only"""
     global typed_text
+    if current_screen != "game":
+        return
     if event.keysym == "BackSpace" and not celebrating:
         if typed_text:
             typed_text = typed_text[:-1]
@@ -288,11 +633,17 @@ def show_congratulations_popup(completion_time):
     congrats_frame = tk.Frame(popup, bg="#00FFD6", bd=5, relief="raised")
     congrats_frame.pack(expand=True, fill="both", padx=100, pady=100)
     
-    # Time display
-    minutes = int(completion_time // 60)
-    seconds = int(completion_time % 60)
+    # Time display with proper overflow handling
+    total_seconds = int(completion_time)
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
     milliseconds = int((completion_time % 1) * 100)
-    time_str = f"{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+    
+    if hours > 0:
+        time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
+    else:
+        time_str = f"{minutes:02d}:{seconds:02d}.{milliseconds:02d}"
     
     # Get team name
     team_name = current_user.get("team_name", "Unknown Team")
@@ -300,7 +651,7 @@ def show_congratulations_popup(completion_time):
     # Congratulations text
     congrats_label = tk.Label(
         congrats_frame,
-        text=f"DAKSHA CARNIVAL ROUND 5\n\n🎊 CONGRATULATIONS! 🎊\n\n👥 TEAM: {team_name}\n\n✨ YOU DID IT! ✨\n\n🎯 ALL WORDS COMPLETED! 🎯\n\n⏱️ TIME: {time_str}\n\n🏆 BEST DECISION EVER! 🏆\n\n🌟 AMAZING WORK! 🌟",
+        text=f"DAKSHA CARNIVAL ROUND 5\n\n🎊 CONGRATULATIONS! 🎊\n\n👥 TEAM: {team_name}\n\n✨ YOU DID IT! ✨\n\n🎯 ALL WORDS COMPLETED! 🎯\n\n⏱️ TIME: {time_str}\n\n🏆 BEST DECISION EVER! 🏆",
         font=("Orbitron", 20, "bold"),
         fg="#0d1117",
         bg="#00FFD6",
@@ -308,20 +659,66 @@ def show_congratulations_popup(completion_time):
     )
     congrats_label.pack(expand=True, fill="both", padx=30, pady=20)
     
-    # Play again button (centered)
-    play_again_btn = tk.Button(
-        congrats_frame,
-        text="🎮 PLAY AGAIN 🎮",
-        font=("Consolas", 14, "bold"),
+    # Pass key display - Enhanced styling
+    passkey_frame = tk.Frame(congrats_frame, bg="#00FFD6", relief="raised", bd=3)
+    passkey_frame.pack(pady=20, padx=30, fill="x")
+    
+    # Pass key title
+    passkey_label = tk.Label(
+        passkey_frame,
+        text="🔑 YOUR PASS KEY 🔑",
+        font=("Orbitron", 18, "bold"),
+        fg="#0d1117",
+        bg="#00FFD6"
+    )
+    passkey_label.pack(pady=(15, 10))
+    
+    # Pass key display - Enhanced with better styling
+    passkey_display_frame = tk.Frame(passkey_frame, bg="#0d1117", relief="sunken", bd=4)
+    passkey_display_frame.pack(pady=(0, 15), padx=20, fill="x")
+    
+    
+    
+    
+    #KEY PASS NUMBER IS HERE                                                                     KEY BRO
+
+
+
+
+
+    passkey_text = tk.Label(
+        passkey_display_frame,
+
+
+
+
+        
+        text="831733",
+
+
+
+
+
+
+        font=("Consolas", 32, "bold"),
         fg="#00FFD6",
         bg="#0d1117",
-        activebackground="#21262D",
-        activeforeground="#00FFD6",
-        relief="raised",
-        bd=3,
-        command=lambda: [popup.destroy(), end_celebration()]
+        relief="flat",
+        bd=0,
+        padx=30,
+        pady=20
     )
-    play_again_btn.pack(pady=20)
+    passkey_text.pack(expand=True, fill="both")
+    
+    # Copy instruction
+    copy_instruction = tk.Label(
+        passkey_frame,
+        text="📋 Click to copy or write down this pass key",
+        font=("Consolas", 12, "italic"),
+        fg="#0d1117",
+        bg="#00FFD6"
+    )
+    copy_instruction.pack(pady=(0, 15))
     
     # Popup stays open until user manually closes or clicks a button
 
@@ -419,6 +816,30 @@ def hide_all_screens():
         home_frame.pack_forget()
     if 'game_frame' in globals():
         game_frame.pack_forget()
+    if 'admin_frame' in globals():
+        admin_frame.pack_forget()
+
+def update_guide_text():
+    """Update guide instructions on home screen to reflect target words"""
+    try:
+        if 'guide_label' in globals() and guide_label.winfo_exists():
+            guide_label.config(
+                text=(
+                    "🎮 INTERACTIVE TYPING CHALLENGE\n"
+                    "Professional Mouse-Controlled Interface\n\n"
+                    "🖱️ LEFT CLICK ANYWHERE → Navigate Letters (⭐ → a-z → space → A-Z → ⭐)\n"
+                    "⏰ AUTO-TIMEOUT → 5-second countdown resets to 'a'\n"
+                    "🖱️ RIGHT CLICK ANYWHERE → Input Selected Letter\n"
+                    "⌫ BACKSPACE KEY → Remove Last Character\n\n"
+                    f"🎯 OBJECTIVE: Complete the phrase: {' → '.join(TARGET_WORDS)}\n"
+                    "⏱️ TIMER: Starts automatically upon first input\n\n"
+                    "🖱️ Left Click = Letter Selection | Right Click = Letter Input\n"
+                    "⌨️ Backspace = Character Deletion\n"
+                    "🚪 ESC Key = Exit Application"
+                )
+            )
+    except Exception:
+        pass
 
 def show_home_screen():
     """Show home screen"""
@@ -428,6 +849,7 @@ def show_home_screen():
     home_frame.pack(expand=True, fill="both")
     # Show mouse cursor on home screen
     root.config(cursor="")
+    update_guide_text()
 
 def show_game_screen():
     """Show game screen and start timer"""
@@ -440,25 +862,98 @@ def show_game_screen():
     # Reset word progress
     current_word_index = 0
     update_word_progress()
+    update_objective_text()
+    
+    # Create analog clock on the left side
+    create_analog_clock()
+    
+    # Position digital timer on the right side dynamically
+    screen_width = root.winfo_screenwidth()
+    digital_timer_x = screen_width - 200  # 200px from right edge
+    digital_timer_label.place(x=digital_timer_x, y=20)
+    
     start_game_timer()
+    
+    # Start timer health monitoring for unlimited operation
+    monitor_timer_health()
+    
+    # Start performance optimization for long sessions
+    optimize_timer_performance()
 
 def update_word_progress():
     """Update the word progress display"""
     if current_word_index < len(TARGET_WORDS):
         current_word = TARGET_WORDS[current_word_index]
-        progress_text = f"Word {current_word_index + 1} of {len(TARGET_WORDS)}: {current_word}"
+        progress_text = f"{current_word}"
         word_progress_label.config(text=progress_text)
 
+def update_objective_text():
+    """Update the game objective text to match current TARGET_WORDS"""
+    try:
+        if 'info' in globals() and info.winfo_exists():
+            info.config(
+                text=(
+                    "🎮 INTERACTIVE TYPING CHALLENGE - Professional Interface\n"
+                    "🔄 LEFT CLICK ANYWHERE → Navigate Letters (⭐ → a-z → space → A-Z → ⭐)\n"
+                    "⏰ AUTO-TIMEOUT → 5-second countdown resets to 'a'\n"
+                    "✍️ RIGHT CLICK ANYWHERE → Input Selected Letter\n"
+                    "⌫ BACKSPACE KEY → Remove Last Character\n\n"
+                    f"🎯 OBJECTIVE: Complete the phrase: {' → '.join(TARGET_WORDS)}\n"
+                    "⏱️ TIMER: Active and tracking your progress\n"
+                    "🖱️ Left Click = Letter Selection | Right Click = Letter Input\n"
+                    "⌨️ Backspace = Character Deletion\n"
+                    "🚪 ESC Key = Exit Application"
+                )
+            )
+    except Exception:
+        pass
+
 
 # ----------------------------------------
-# HOME SCREEN FUNCTIONS
+# HOME SCREEN FUNCTIONS & ADMIN CONFIG
 # ----------------------------------------
+def validate_team_number(char):
+    """Validate that only integers are entered in team number field"""
+    return char.isdigit() or char == ""
+
+def show_admin_screen():
+    """Show admin target configuration screen directly inside fullscreen window"""
+    global current_screen
+    current_screen = "admin"
+    hide_all_screens()
+    admin_frame.pack(expand=True, fill="both")
+    root.config(cursor="")
+    admin_target_entry.delete(0, tk.END)
+    admin_target_entry.insert(0, ", ".join(TARGET_WORDS))
+    admin_current_label.config(text=f"Current Target: {', '.join(TARGET_WORDS)}")
+    admin_status_label.config(text="")
+    admin_target_entry.focus_set()
+    admin_target_entry.select_range(0, tk.END)
+
+def check_admin_code(event=None):
+    """Check if the secret admin code (8317332769 or 831732769) is typed in team number"""
+    val = team_name_entry.get().strip()
+    if val in ("8317332769", "831732769"):
+        team_name_entry.delete(0, tk.END)
+        show_admin_screen()
+
 def start_game():
     """Start the game with user validation"""
     team_name = team_name_entry.get().strip()
     
+    # Check if secret admin code was entered before clicking start
+    if team_name in ("8317332769", "831732769"):
+        team_name_entry.delete(0, tk.END)
+        show_admin_screen()
+        return
+
     if not team_name:
-        messagebox.showerror("Error", "Please enter your team name!")
+        messagebox.showerror("Error", "Please enter your team number!")
+        return
+    
+    # Validate that team number contains only integers
+    if not team_name.isdigit():
+        messagebox.showerror("Error", "Team number must contain only numbers (0-9)!")
         return
     
     # Store user data
@@ -505,6 +1000,9 @@ root.attributes('-fullscreen', True)
 
 # Bind ESC key to exit
 def exit_game(event=None):
+    if current_screen == "admin":
+        show_home_screen()
+        return
     if messagebox.askokcancel("Exit Game", "Are you sure you want to exit the DAKSHA CARNIVAL?"):
         root.destroy()
 
@@ -545,17 +1043,17 @@ home_title.pack(pady=30)
 guide_label = tk.Label(
     home_frame,
     text=(
-        "🎮 GLOBAL MOUSE CONTROLS\n"
-        "Click anywhere on screen!\n\n"
-        "🖱️ LEFT CLICK ANYWHERE → Change Letter (cycle through a-z, space, A-Z)\n"
-        "⏰ 5-second countdown → Auto-resets to 'a' after timeout\n"
-        "🖱️ RIGHT CLICK ANYWHERE → Type Letter (add selected letter to text)\n"
-        "⌫ BACKSPACE → Press Backspace key on keyboard to remove last character\n\n"
-        "🎯 GOAL: Type 1 words in sequence: Daksha Carnival\n"
-        "💡 Timer resets when you type the letter!\n\n"
-        "🖱️ Left Click Anywhere = Change Letter | Right Click Anywhere = Type Letter\n"
-        "⌨️ Backspace Key = Remove last character\n"
-        "🚪 Press ESC key to exit the game!"
+        "🎮 INTERACTIVE TYPING CHALLENGE\n"
+        "Professional Mouse-Controlled Interface\n\n"
+        "🖱️ LEFT CLICK ANYWHERE → Navigate Letters (⭐ → a-z → space → A-Z → ⭐)\n"
+        "⏰ AUTO-TIMEOUT → 5-second countdown resets to 'a'\n"
+        "🖱️ RIGHT CLICK ANYWHERE → Input Selected Letter\n"
+        "⌫ BACKSPACE KEY → Remove Last Character\n\n"
+        "🎯 OBJECTIVE: Complete the phrase 'Daksha Carnival'\n"
+        "⏱️ TIMER: Starts automatically upon first input\n\n"
+        "🖱️ Left Click = Letter Selection | Right Click = Letter Input\n"
+        "⌨️ Backspace = Character Deletion\n"
+        "🚪 ESC Key = Exit Application"
     ),
     font=("Consolas", 12),
     fg="#FFFFFF",
@@ -568,23 +1066,30 @@ guide_label.pack(pady=20)
 input_frame = tk.Frame(home_frame, bg="#0d1117")
 input_frame.pack(pady=30)
 
-# Team name input
+# Team number input
 team_name_label = tk.Label(
     input_frame,
-    text="👥 Enter Your Team Name:",
+    text="👥 TEAM NUMBER:",
     font=("Consolas", 16, "bold"),
     fg="#FFFFFF",
     bg="#0d1117"
 )
 team_name_label.pack(pady=10)
 
+# Create validation command for integer input only
+validate_cmd = root.register(validate_team_number)
+
 team_name_entry = tk.Entry(
     input_frame,
     font=("Consolas", 14),
     width=30,
-    justify="center"
+    justify="center",
+    validate="key",
+    validatecommand=(validate_cmd, "%S")
 )
 team_name_entry.pack(pady=5)
+team_name_entry.bind("<KeyRelease>", check_admin_code)
+team_name_entry.bind("<Return>", lambda e: start_game())
 
 # Start game button (centered)
 start_btn = tk.Button(
@@ -604,49 +1109,158 @@ start_btn = tk.Button(
 start_btn.pack(pady=40)
 
 # ----------------------------------------
+# ADMIN SCREEN FRAME
+# ----------------------------------------
+admin_frame = tk.Frame(root, bg="#0d1117")
+
+admin_title = tk.Label(
+    admin_frame,
+    text="⚙️ ADMIN CONFIGURATION ⚙️\n⚡ TARGET WORDS SETTINGS ⚡",
+    font=("Orbitron", 30, "bold"),
+    fg="#00FFD6",
+    bg="#0d1117"
+)
+admin_title.pack(pady=(50, 15))
+
+admin_info = tk.Label(
+    admin_frame,
+    text=(
+        "Enter the target phrase for players to type.\n"
+        "For multiple sequential target words, separate them with commas\n"
+        "(e.g., 'Word 1, Word 2' or 'Daksha Carnival')."
+    ),
+    font=("Consolas", 13),
+    fg="#FFFFFF",
+    bg="#0d1117",
+    justify="center"
+)
+admin_info.pack(pady=12)
+
+admin_current_label = tk.Label(
+    admin_frame,
+    text=f"Current Target: {', '.join(TARGET_WORDS)}",
+    font=("Consolas", 15, "bold"),
+    fg="#FFA500",
+    bg="#0d1117"
+)
+admin_current_label.pack(pady=8)
+
+admin_target_entry = tk.Entry(
+    admin_frame,
+    font=("Consolas", 18, "bold"),
+    width=35,
+    justify="center",
+    bg="#161B22",
+    fg="#00FFD6",
+    insertbackground="#00FFD6",
+    relief="sunken",
+    bd=3
+)
+admin_target_entry.pack(pady=12)
+
+admin_status_label = tk.Label(
+    admin_frame,
+    text="",
+    font=("Consolas", 13, "bold"),
+    fg="#00FF00",
+    bg="#0d1117"
+)
+admin_status_label.pack(pady=5)
+
+def save_admin_target(event=None):
+    global TARGET_WORDS
+    new_val = admin_target_entry.get().strip()
+    if not new_val:
+        admin_status_label.config(text="❌ Target phrase cannot be empty!", fg="#FF0055")
+        return
+
+    if "," in new_val:
+        words = [w.strip() for w in new_val.split(",") if w.strip()]
+    else:
+        words = [new_val]
+
+    if not words:
+        admin_status_label.config(text="❌ Target phrase cannot be empty!", fg="#FF0055")
+        return
+
+    TARGET_WORDS = words
+    save_target_words()
+    update_word_progress()
+    update_objective_text()
+    update_guide_text()
+    admin_current_label.config(text=f"Current Target: {', '.join(TARGET_WORDS)}")
+    admin_status_label.config(text=f"✅ Target updated to: {' → '.join(TARGET_WORDS)}! Returning to Home...", fg="#00FF00")
+    root.after(1200, show_home_screen)
+
+admin_btn_frame = tk.Frame(admin_frame, bg="#0d1117")
+admin_btn_frame.pack(pady=20)
+
+admin_save_btn = tk.Button(
+    admin_btn_frame,
+    text="💾 SAVE TARGET",
+    font=("Orbitron", 13, "bold"),
+    fg="#FFFFFF",
+    bg="#238636",
+    activebackground="#2ea043",
+    activeforeground="#FFFFFF",
+    relief="raised",
+    bd=3,
+    padx=18,
+    pady=6,
+    command=save_admin_target
+)
+admin_save_btn.pack(side="left", padx=12)
+
+admin_back_btn = tk.Button(
+    admin_btn_frame,
+    text="🔙 BACK TO HOME",
+    font=("Orbitron", 13, "bold"),
+    fg="#FFFFFF",
+    bg="#30363D",
+    activebackground="#21262D",
+    activeforeground="#00FFD6",
+    relief="raised",
+    bd=3,
+    padx=18,
+    pady=6,
+    command=show_home_screen
+)
+admin_back_btn.pack(side="left", padx=12)
+
+admin_target_entry.bind("<Return>", save_admin_target)
+admin_target_entry.bind("<Escape>", lambda e: show_home_screen())
+
+# ----------------------------------------
 # GAME SCREEN
 # ----------------------------------------
 game_frame = tk.Frame(root, bg="#0d1117")
 
-# Timer in top-left corner with enhanced clock design
-timer_frame = tk.Frame(game_frame, bg="#0d1117", relief="raised", bd=4)
-timer_frame.place(x=20, y=20)
-
-# Clock face background
-clock_bg = tk.Frame(timer_frame, bg="#1a1a2e", relief="sunken", bd=3)
-clock_bg.pack(padx=5, pady=5)
-
+# Timer in top-left corner
 timer_label = tk.Label(
-    clock_bg,
-    text="🕐 00:00.00",
-    font=("Orbitron", 32, "bold"),
+    game_frame,
+    text="⏱️ 00:00.00",
+    font=("Orbitron", 20, "bold"),
+    fg="#00FFD6",
+    bg="#0d1117",
+    relief="raised",
+    bd=2
+)
+timer_label.place(x=20, y=20)
+
+# Digital timer on the right side
+digital_timer_label = tk.Label(
+    game_frame,
+    text="00:00.00",
+    font=("Orbitron", 24, "bold"),
     fg="#00FFD6",
     bg="#1a1a2e",
-    relief="flat",
-    bd=0,
+    relief="sunken",
+    bd=3,
     padx=20,
-    pady=15
+    pady=10
 )
-timer_label.pack()
-
-# Clock hands decoration (visual elements)
-clock_decorations = tk.Frame(clock_bg, bg="#1a1a2e")
-clock_decorations.pack()
-
-# Add clock-like visual elements
-for i in range(12):
-    hour_mark = tk.Label(
-        clock_decorations,
-        text="•",
-        font=("Arial", 8),
-        fg="#00FFD6",
-        bg="#1a1a2e"
-    )
-    # Position hour marks in a circle pattern (simplified)
-    if i < 6:
-        hour_mark.pack(side="top", pady=1)
-    else:
-        hour_mark.pack(side="bottom", pady=1)
+# Position on the right side (will be positioned dynamically)
+# digital_timer_label.place(x=800, y=20)  # Will be positioned in show_game_screen()
 
 # Title frame
 frame = tk.Frame(game_frame, bg="#00FFD6", bd=3, relief="groove")
@@ -664,7 +1278,7 @@ title.pack()
 # Word progress display
 word_progress_label = tk.Label(
     game_frame,
-    text="Word 1 of 4: DAKSHA",
+    text="DAKSHA",
     font=("Consolas", 14, "bold"),
     fg="#00FFD6",
     bg="#0d1117"
@@ -674,16 +1288,16 @@ word_progress_label.pack(pady=10)
 info = tk.Label(
     game_frame,
     text=(
-        "🎮 GLOBAL MOUSE CONTROLS - Click anywhere on screen!\n"
-        "🔄 LEFT CLICK ANYWHERE → Change Letter (cycle through a-z, space, A-Z)\n"
-        "⏰ 5-second countdown → Auto-resets to 'a' after timeout\n"
-        "✍️ RIGHT CLICK ANYWHERE → Type Letter (add selected letter to text)\n"
-        "⌫ BACKSPACE → Press Backspace key on keyboard to remove last character\n\n"
-        f"🎯 Goal: Type {len(TARGET_WORDS)} words in sequence: {' → '.join(TARGET_WORDS)}\n"
-        "💡 Timer resets when you type the letter!\n"
-        "🖱️ Left Click Anywhere = Change Letter | Right Click Anywhere = Type Letter\n"
-        "⌨️ Backspace Key = Remove last character\n"
-        "🚪 Press ESC key to exit the game!"
+        "🎮 INTERACTIVE TYPING CHALLENGE - Professional Interface\n"
+        "🔄 LEFT CLICK ANYWHERE → Navigate Letters (⭐ → a-z → space → A-Z → ⭐)\n"
+        "⏰ AUTO-TIMEOUT → 5-second countdown resets to 'a'\n"
+        "✍️ RIGHT CLICK ANYWHERE → Input Selected Letter\n"
+        "⌫ BACKSPACE KEY → Remove Last Character\n\n"
+        f"🎯 OBJECTIVE: Complete the phrase: {' → '.join(TARGET_WORDS)}\n"
+        "⏱️ TIMER: Active and tracking your progress\n"
+        "🖱️ Left Click = Letter Selection | Right Click = Letter Input\n"
+        "⌨️ Backspace = Character Deletion\n"
+        "🚪 ESC Key = Exit Application"
     ),
     font=("Consolas", 12),
     fg="#FFFFFF",
@@ -767,7 +1381,7 @@ backspace_button.pack(pady=15)
 
 footer = tk.Label(
     game_frame,
-    text="💡 LEFT CLICK ANYWHERE = Change Letter | RIGHT CLICK ANYWHERE = Type Letter 💡",
+    text="💡 PROFESSIONAL CONTROLS: Left Click = Letter Selection | Right Click = Letter Input 💡",
     font=("Consolas", 13, "italic"),
     fg="#999999",
     bg="#0d1117"
@@ -784,9 +1398,6 @@ root.bind_all("<Key>", block_keys)
 # ----------------------------------------
 # RUN ANIMATION + MAINLOOP
 # ----------------------------------------
-# Initialize voice engine
-initialize_voice()
-
 # Start with home screen
 show_home_screen()
 animate_glow()
